@@ -10,3 +10,6 @@ Pin  Name    Description          Pin  Name    Description
 17   PB3     MOSI/OC2A/PCINT3     26   SIN
 18   PB4     MISO/PCINT4          17   SOUT
 19   PB5     SCK/PCINT5           25   SCLK
+
+ 5   PD3     OC2B
+15   PB1     OC1A
