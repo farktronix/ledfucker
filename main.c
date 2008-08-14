@@ -21,11 +21,24 @@ void setupPins (void)
     intrFlag = false;
 
     cli(); 
+    CLKPR = 0x80;
+    CLKPR = 0x00;
     /* timer0 prescaler = clk/1042 -> 11059200Hz / 1024 = 10800Hz per increment */
     /* overflow every 256 ticks = 42.1875Hz = 23.7037ms an interrupt */
-    TCCR0B |= _BV(CS00) | _BV(CS02);
-    TCNT0 = 0;
+    TCCR0B |= _BV(CS00) | _BV(CS01) | _BV(CS02);
+    TCNT0   = 0;
     TIMSK0 |= _BV(TOIE0); 
+   
+    /* Fast-PWM mode, BOTTOM set/CLEAR on compare*/
+    TCCR2A  = _BV(COM2B1) | _BV(WGM21) | _BV(WGM20);
+    /* timer1 prescaler = clk/128 */
+    TCCR2B |= _BV(CS20) | _BV(CS22);
+    TCNT2   = 0;
+    /* 50% duty cycle */
+    OCR2B   = 0;
+    TIMSK2 |= _BV(OCIE2B); 
+
+ //   TCCR0A = 0x00;//_BV(WGM01);                //Set CTC Mode disabling the output
  //   TCCR0A = 0x00;//_BV(WGM01);                //Set CTC Mode disabling the output
  //   TCCR0B = _BV(CS02) | _BV(CS00);     //1024 prescaler
  //   OCR0A  = 0xff;                      //essentially overflow
@@ -33,7 +46,8 @@ void setupPins (void)
  //   TIMSK0 = _BV(TOIE0);               //enable OC interupt
 ////_BV(OCIE0A) | _BV(TOIE0);               //enable OC interupt
 
-    DDRB  =  _BV(DDB1);
+    DDRB |= _BV(PB1);
+    DDRD |= _BV(PD3);
   //  DDRB &= ~DDB1;
   //  PORTB = _BV(PB1);
 
@@ -42,8 +56,6 @@ void setupPins (void)
     /* Enable SPI, Master, set clock rate fck/128 */ 
     SPCR = (1<<SPE)|(1<<MSTR)|(1<<SPR1)|(1<<SPR0); 
 
-    DDRD = DDD1 | DDRD;
-    DDRB = DDB1 | DDRB;
 
     sei();
 
@@ -106,10 +118,12 @@ int main(void)
     writeBrightnessToDriver(happyChan);
 
     for ( ; ; ) {
-        _delay_ms(100);
-        PIND ^= 1 << PD7;        
-        PINB ^= 1 << PB1;        
-        _delay_ms(100);
+       // _delay_ms(100);
+       // PIND ^= 1 << PD7;        
+       // PINB ^= 1 << PB1;        
+       // _delay_ms(100);
+      // OCR2B = 0;
+      // _delay_ms(1);
 
         if(intrFlag == true){
             intrFlag = false;
@@ -120,6 +134,17 @@ int main(void)
     }
 
     return 0;   /* never reached */
+}
+
+ISR(TIMER2_COMPB_vect)
+{
+    static int dir = 1;
+    if(OCR2B == 255)
+        dir = -1;
+    if(OCR2B == 0)
+        dir = 1;
+    
+    OCR2B += dir;
 }
 
 ISR(TIMER0_OVF_vect)
