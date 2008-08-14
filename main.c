@@ -49,14 +49,14 @@ void setupPins (void)
     DDRB |= _BV(PB1);
     DDRD |= _BV(PD3);
   //  DDRB &= ~DDB1;
-  //  PORTB = _BV(PB1);
+    PORTB |= _BV(PB1);
 
     /* Set MOSI and SCK output, all others input */ 
-    PORTB |= (1<<PB3)|(1<<PB5); 
-    /* Enable SPI, Master, set clock rate fck/128 */ 
-    SPCR = (1<<SPE)|(1<<MSTR)|(1<<SPR1)|(1<<SPR0); 
-
-
+    DDRB |= _BV(PB3) | _BV(PB5); 
+    PORTB |= _BV(PB3) | _BV(PB5); 
+    /* Enable SPI, Master, set clock rate fck/4 */ 
+    SPCR = _BV(SPE) | _BV(MSTR);
+    
     sei();
 
     return;    
@@ -110,25 +110,16 @@ int main(void)
 {
     setupPins();
 
-    CreateChanArray(happyChan);
-    int ii;
-    for (ii = 0; ii < kNumChannels; ii++) {
-        setBrightnessForChannel(0x800, ii, happyChan);
-    }
-    writeBrightnessToDriver(happyChan);
+//    CreateChanArray(happyChan);
+//    int ii;
+//    for (ii = 0; ii < kNumChannels; ii++) {
+//        setBrightnessForChannel(0x800, ii, happyChan);
+//    }
+//    writeBrightnessToDriver(happyChan);
 
     for ( ; ; ) {
-       // _delay_ms(100);
-       // PIND ^= 1 << PD7;        
-       // PINB ^= 1 << PB1;        
-       // _delay_ms(100);
-      // OCR2B = 0;
-      // _delay_ms(1);
-
         if(intrFlag == true){
             intrFlag = false;
-           // PORTB ^= _BV(PB1);
-           //PORTB = _BV(PB1);
         }
 
     }
@@ -152,7 +143,7 @@ ISR(TIMER0_OVF_vect)
     if (intrCount >= 2){
         intrFlag = true;
         intrCount = 0;
-        PORTB ^= _BV(PB1);
+    //    PORTB ^= _BV(PB1);
     }
     else{
         intrCount = intrCount + 1;

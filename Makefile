@@ -18,7 +18,7 @@ DEVICE     = atmega168
 CLOCK      = 8000000
 PROGRAMMER = -c stk500v2 -P usb
 OBJECTS    = main.o
-FUSES      = -U hfuse:w:0xdf:m -U lfuse:w:0x22:m
+FUSES      = -U hfuse:w:0xdf:m -U lfuse:w:0x62:m
 # ATMega168 fuse bits:
 # Example for 8 MHz internal oscillator
 # Fuse high byte:
