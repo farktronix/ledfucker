@@ -57,7 +57,7 @@ void setupPins (void)
     /* Fast-PWM mode, BOTTOM set/CLEAR on compare*/
     TCCR2A  = _BV(COM2B1) | _BV(WGM21) | _BV(WGM20);
     /* timer1 prescaler = clk/128 */
-    TCCR2B |= _BV(CS20) | _BV(CS22);
+    TCCR2B |= _BV(CS22);//_BV(CS20) | _BV(CS22);
     TCNT2   = 0;
     /* 50% duty cycle */
     OCR2B   = 127;
@@ -124,11 +124,9 @@ void setBrightnessForChannel (unsigned int brightness, int channel, char *allCha
 
 void writeSPIByte (unsigned char byte)
 {
-    LED_ON;
     SPDR = byte;
     /* Wait for transmission complete */ 
     while(!(SPSR & _BV(SPIF)));
-    LED_OFF;
 }
 
 void writeBrightnessToDriver (char *chans)
@@ -142,7 +140,6 @@ void writeBrightnessToDriver (char *chans)
     SS_ON;
     _delay_ms(10);
     SS_OFF;
-    BLANK_OFF;
     return;
 }
 
@@ -169,13 +166,13 @@ int main(void)
     CreateChanArray(happyChan);
     int ii;
     for (ii = 0; ii <= kNumChannels; ii++) {
-        setBrightnessForChannel(0x50f, ii, happyChan);
+        setBrightnessForChannel(0x06f, ii, happyChan);
     }
     writeDCToDriver(); 
     writeBrightnessToDriver(happyChan);
+    BLANK_OFF;
 
     for ( ; ; ) {
-
     }
 
     return 0;   /* never reached */
@@ -186,8 +183,10 @@ static volatile char clkCntH = 0;
 ISR(TIMER2_OVF_vect)
 {
 //    clkCntL++;
-    GSCLOCK_TOGGLE;
-    GSCLOCK_TOGGLE;
+//    GSCLOCK_TOGGLE;
+//    GSCLOCK_TOGGLE;
+//    BLANK_ON;
+//    BLANK_OFF;
 //    if (clkCntL == 0xFF) {
 //        clkCntH++;
 //        clkCntL = 0;
@@ -200,14 +199,21 @@ ISR(TIMER2_OVF_vect)
 //        BLANK_OFF;
 //    }
 
-
-    static int dir = 1;
-    if(OCR2B == 255)
-        dir = -1;
-    if(OCR2B == 0)
-        dir = 1;
-    
-    OCR2B += dir;
+//    static int16_t bob = 0;
+//    static int dir = 1;
+//    if(OCR2B == 255)
+//        dir = -1;
+//    if(OCR2B == 0)
+//        dir = 1;
+//    OCR2B += dir;
+//
+//    bob++;
+//    if(bob == 0xff0) {
+//        bob = 0;
+//        BLANK_ON;
+//        BLANK_OFF;
+//        LED_ON;
+//    }
 }
 
 ISR(TIMER0_OVF_vect)
