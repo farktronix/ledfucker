@@ -48,20 +48,24 @@ void setupPins (void)
     CLKPR = 0x80;
     CLKPR = 0x00;
 
-    /* timer0 prescaler = clk/1042 -> 11059200Hz / 1024 = 10800Hz per increment */
-    /* overflow every 256 ticks = 42.1875Hz = 23.7037ms an interrupt */
-    //TCCR0B |= _BV(CS00) | _BV(CS01) | _BV(CS02);
-    //TCNT0   = 0;
-    //TIMSK0 |= _BV(TOIE0); 
-   
+    /* timer1 prescaler = clk/1024, mode CTC */
+    TCCR1A = _BV(COM1A0); 
+    TCCR1B = _BV(WGM12) | _BV(CS12) | _BV(CS10);
+
+    /* Compare on 2 */
+    OCR1AH = 0x0;
+    OCR1AL = 0x2;
+
+    TIMSK1 |= _BV(OCIE1A);
+
     /* Fast-PWM mode, BOTTOM set/CLEAR on compare*/
     TCCR2A  = _BV(COM2B1) | _BV(WGM21) | _BV(WGM20);
     /* timer1 prescaler = clk/128 */
-    TCCR2B |= _BV(CS22);//_BV(CS20) | _BV(CS22);
+    TCCR2B |= _BV(CS21);// | _BV(CS20) | _BV(CS22);
     TCNT2   = 0;
     /* 50% duty cycle */
     OCR2B   = 127;
-    TIMSK2 |= _BV(TOIE2); 
+    //TIMSK2 |= _BV(TOIE2); 
 
     // set status LED as output
     // set DCPRG as output
@@ -122,6 +126,14 @@ void setBrightnessForChannel (unsigned int brightness, int channel, char *allCha
     }
 }
 
+void setBrightnessForAllChannels (int bright, char *allChans)
+{
+    int ii;
+    for (ii = 0; ii <= kNumChannels; ii++) {
+        setBrightnessForChannel(bright, ii, allChans);
+    }
+}
+
 void writeSPIByte (unsigned char byte)
 {
     SPDR = byte;
@@ -134,7 +146,7 @@ void writeBrightnessToDriver (char *chans)
     SS_OFF;
     VPRG_OFF;
     int ii;
-    for (ii = 0; ii < (kNumChannels * kBitsPerChannel) / 8; ii++) {
+    for (ii = (kNumChannels * kBitsPerChannel) / 8; ii >= 0; ii--) {
         writeSPIByte(chans[ii]);
     }
     SS_ON;
@@ -159,29 +171,39 @@ void writeDCToDriver (void)
     return;
 }
 
+
 int main(void)
 {
     setupPins();
 
     CreateChanArray(happyChan);
-    int ii;
-    for (ii = 0; ii <= kNumChannels; ii++) {
-        setBrightnessForChannel(0x06f, ii, happyChan);
-    }
+    unsigned char brightness = 0xff;
+    int direction = -1;
+    setBrightnessForAllChannels(brightness, happyChan);
     writeDCToDriver(); 
     writeBrightnessToDriver(happyChan);
     BLANK_OFF;
 
     for ( ; ; ) {
+    // chaser
+//        setBrightnessForAllChannels(0x000, happyChan);
+//        setBrightnessForChannel(0xFFF, brightness, happyChan);
+
+        setBrightnessForAllChannels(brightness, happyChan);
+        writeBrightnessToDriver(happyChan);
+        _delay_ms(100);
+        brightness += direction;
+        if (brightness == 0xFF) direction = -1;
+        else if (brightness == 0x00) direction = 1;
     }
 
     return 0;   /* never reached */
 }
 
-static volatile char clkCntL = 0;
-static volatile char clkCntH = 0;
-ISR(TIMER2_OVF_vect)
-{
+//static volatile char clkCntL = 0;
+//static volatile char clkCntH = 0;
+//ISR(TIMER2_OVF_vect)
+//{
 //    clkCntL++;
 //    GSCLOCK_TOGGLE;
 //    GSCLOCK_TOGGLE;
@@ -214,11 +236,12 @@ ISR(TIMER2_OVF_vect)
 //        BLANK_OFF;
 //        LED_ON;
 //    }
-}
+//}
 
-ISR(TIMER0_OVF_vect)
-{
-
+//ISR(TIMER1_OCR_vect)
+//{
+    //LED_TOGGLE;
+    //TCNT1L = 0;
 //    clkCnt++;
 //    if (clkCnt >= 0xFFF) {
 //        BLANK_OFF;
@@ -234,4 +257,9 @@ ISR(TIMER0_OVF_vect)
 //    else{
 //        intrCount = intrCount + 1;
 //    }
+//}
+
+ISR(TIMER1_COMPA_vect) {
+    BLANK_ON;
+    BLANK_OFF;
 }
