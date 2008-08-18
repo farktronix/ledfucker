@@ -15,29 +15,29 @@
 volatile uint8_t intrCount;
 volatile bool intrFlag;
 
-#define LED_ON  (PORTB |= _BV(PB1))
-#define LED_OFF (PORTB &= ~_BV(PB1))
-#define LED_TOGGLE (PORTB ^= _BV(PB1))
+#define LED_ON  (PORTC |= _BV(PC5))
+#define LED_OFF (PORTC &= ~_BV(PC5))
+#define LED_TOGGLE (PORTC ^= _BV(PC5))
 
 #define SS_ON (PORTB |= _BV(PB2))
 #define SS_OFF (PORTB &= ~_BV(PB2))
 #define SS_TOGGLE (PORTB ^= _BV(PB2))
 
-#define BLANK_ON (PORTD |= _BV(PD5))
-#define BLANK_OFF (PORTD &= ~_BV(PD5))
-#define BLANK_TOGGLE (PORTD ^= _BV(PD5))
+#define BLANK_ON (PORTB |= _BV(PB1))
+#define BLANK_OFF (PORTB &= ~_BV(PB1))
+#define BLANK_TOGGLE (PORTB ^= _BV(PB1))
 
-#define VPRG_ON (PORTD |= _BV(PD6))
-#define VPRG_OFF (PORTD &= ~_BV(PD6))
-#define VPRG_TOGGLE (PORTD ^= _BV(PD6))
+#define VPRG_ON (PORTD |= _BV(PD7))
+#define VPRG_OFF (PORTD &= ~_BV(PD7))
+#define VPRG_TOGGLE (PORTD ^= _BV(PD7))
 
-#define GSCLOCK_ON (PORTD |= _BV(PD7))
-#define GSCLOCK_OFF (PORTD &= ~_BV(PD7))
-#define GSCLOCK_TOGGLE (PORTD ^= _BV(PD7))
+#define GSCLOCK_ON (PORTD |= _BV(PD6))
+#define GSCLOCK_OFF (PORTD &= ~_BV(PD6))
+#define GSCLOCK_TOGGLE (PORTD ^= _BV(PD6))
 
-#define DCPRG_ON (PORTB |= _BV(PB7))
-#define DCPRG_OFF (PORTB &= ~_BV(PB7))
-#define DCPRG_TOGGLE (PORTB ^= _BV(PB7))
+#define DCPRG_ON (PORTB |= _BV(PB0))
+#define DCPRG_OFF (PORTB &= ~_BV(PB0))
+#define DCPRG_TOGGLE (PORTB ^= _BV(PB0))
 
 void setupPins (void)
 {
@@ -48,36 +48,38 @@ void setupPins (void)
     CLKPR = 0x80;
     CLKPR = 0x00;
 
-    /* timer1 prescaler = clk/1024, mode CTC */
-    TCCR1A = _BV(COM1A0); 
+    /* 
+       timer1 prescaler = clk/1024, mode CTC, compare on 2
+       triggers BLANK every 4096 clock cycles
+       serves as BLANK (every 2^8 GS Clocks) 
+       interrupt sets BLANK high, so clear immediately after 
+    */
+    //TCCR1A = _BV(COM1A0) | _BV(COM1A1); 
     TCCR1B = _BV(WGM12) | _BV(CS12) | _BV(CS10);
-
-    /* Compare on 2 */
     OCR1AH = 0x0;
-    OCR1AL = 0x2;
-
+    OCR1AL = 0x7;
     TIMSK1 |= _BV(OCIE1A);
 
-    /* Fast-PWM mode, BOTTOM set/CLEAR on compare*/
-    TCCR2A  = _BV(COM2B1) | _BV(WGM21) | _BV(WGM20);
-    /* timer1 prescaler = clk/128 */
-    TCCR2B |= _BV(CS21);// | _BV(CS20) | _BV(CS22);
-    TCNT2   = 0;
-    /* 50% duty cycle */
-    OCR2B   = 127;
+    /* 
+       CTC with Toggle, clk/8
+       Triggers GSClk once every 16 clock cycles
+    */
+    TCCR0A  = _BV(COM0A0) | _BV(WGM01);//_BV(COM2B1) | _BV(WGM21) | _BV(WGM20);
+    TCCR0B |= _BV(CS01);
+    TCNT0   = 0;
+    OCR0A   = 1;
+    //TCCR2A  = _BV(COM2B0) | _BV(WGM21);//_BV(COM2B1) | _BV(WGM21) | _BV(WGM20);
+    //TCCR2B |= _BV(CS21);
+    //TCNT2   = 0;
+    //OCR2B   = 1;
     //TIMSK2 |= _BV(TOIE2); 
 
-    // set status LED as output
-    // set DCPRG as output
-    DDRB |= _BV(PB1) | _BV(PB7);
-    // set BLANK as output
-    // set GSCLK as output
-    // set VPRG as output
-    // set PWM LED as output
-    DDRD |= _BV(PD3) | _BV(PD5) | _BV(PD6) | _BV(PD7);
-    
-    /* Set MOSI and SCK output, all others input */ 
-    DDRB |= _BV(PB2) | _BV(PB3) | _BV(PB5); 
+    /* set  LED */
+    DDRC |= _BV(PC5);
+    /* Set  GSCLK      VPRG       ????GSClck timer?*/
+    DDRD |= _BV(PD3) | _BV(PD7) | _BV(PD6);// | _BV(PD5);
+    /* Set  !SS        MOSI       SCK        BLANK      DCPRG */ 
+    DDRB |= _BV(PB2) | _BV(PB3) | _BV(PB5) | _BV(PB1) | _BV(PB0); 
     /* Enable SPI, Master, set clock rate fck/4 */ 
     SPCR = _BV(SPE) | _BV(MSTR);
 
@@ -157,7 +159,6 @@ void writeBrightnessToDriver (char *chans)
 
 void writeDCToDriver (void)
 {
-    
     int ii;
     SS_OFF;
     VPRG_ON;
@@ -171,95 +172,91 @@ void writeDCToDriver (void)
     return;
 }
 
+volatile bool perFlag = false;
 
 int main(void)
 {
     setupPins();
-
+    uint8_t up = 0, down = 0xff, count = 0;
     CreateChanArray(happyChan);
-    unsigned char brightness = 0xff;
+    unsigned char brightness = 0x00;
     int direction = -1;
     setBrightnessForAllChannels(brightness, happyChan);
     writeDCToDriver(); 
     writeBrightnessToDriver(happyChan);
     BLANK_OFF;
-
+    //PORTC |= _BV(PC5);
     for ( ; ; ) {
     // chaser
 //        setBrightnessForAllChannels(0x000, happyChan);
-//        setBrightnessForChannel(0xFFF, brightness, happyChan);
+        //setBrightnessForChannel(0xFFF, brightness, happyChan);
+        //writeSPIByte(0xFF); 
+        //SS_ON;
+        //_delay_ms(10);
+        //SS_OFF;
 
-        setBrightnessForAllChannels(brightness, happyChan);
-        writeBrightnessToDriver(happyChan);
-        _delay_ms(100);
-        brightness += direction;
-        if (brightness == 0xFF) direction = -1;
-        else if (brightness == 0x00) direction = 1;
+        if(perFlag == true){
+            // Impulse Blank every 4096 cycles
+            direction = direction;
+            
+            // Clear flag 
+            perFlag = false;
+            //BLANK_OFF;
+            
+            // Fade and Glow... eventually
+            #ifdef true
+            //setBrightnessForAllChannels(brightness, happyChan);
+            LED_ON;
+            writeSPIByte(0x00); 
+            writeSPIByte(0x00); //-0
+            writeSPIByte(~brightness); //ff    for square green LED 
+            writeSPIByte(0x00); 
+            writeSPIByte(0x00); 
+            writeSPIByte(0x00); 
+            writeSPIByte(0x00); //0f
+            writeSPIByte(0xf0); //f-    for white LED
+            writeSPIByte(0x00); 
+            writeSPIByte(0x00); 
+            writeSPIByte(0x00); 
+            writeSPIByte(0x00); 
+            writeSPIByte(0x00); 
+            writeSPIByte(0x00); 
+            writeSPIByte(0x00); 
+            writeSPIByte(brightness>>4); //-f
+            writeSPIByte(brightness<<4); //f0    for round green LED
+            writeSPIByte(0x00); 
+            writeSPIByte(0x00); //-0
+            writeSPIByte(up); //ff    for yellow LED
+            writeSPIByte(0x00); 
+            writeSPIByte(0x00); 
+            writeSPIByte(0x00); 
+            writeSPIByte(0x00); 
+            SS_ON;
+            SS_OFF;
+            //writeBrightnessToDriver(happyChan);
+            LED_OFF;
+            count++;
+            if(count == 2){
+                count = 0;
+                brightness += direction;
+                if (brightness == 0xFF) direction = -1;
+                else if (brightness == 0x00) direction = 1;
+                up++;
+                down--;
+            }
+            #endif
+            
+
+            //LED_TOGGLE;
+        }
     }
 
     return 0;   /* never reached */
 }
 
-//static volatile char clkCntL = 0;
-//static volatile char clkCntH = 0;
-//ISR(TIMER2_OVF_vect)
-//{
-//    clkCntL++;
-//    GSCLOCK_TOGGLE;
-//    GSCLOCK_TOGGLE;
-//    BLANK_ON;
-//    BLANK_OFF;
-//    if (clkCntL == 0xFF) {
-//        clkCntH++;
-//        clkCntL = 0;
-//    }
-//    if (clkCntH == 0x0F) {
-//        clkCntL = 0;
-//        clkCntH = 0;
-//        LED_ON;
-//        BLANK_ON;
-//        BLANK_OFF;
-//    }
-
-//    static int16_t bob = 0;
-//    static int dir = 1;
-//    if(OCR2B == 255)
-//        dir = -1;
-//    if(OCR2B == 0)
-//        dir = 1;
-//    OCR2B += dir;
-//
-//    bob++;
-//    if(bob == 0xff0) {
-//        bob = 0;
-//        BLANK_ON;
-//        BLANK_OFF;
-//        LED_ON;
-//    }
-//}
-
-//ISR(TIMER1_OCR_vect)
-//{
-    //LED_TOGGLE;
-    //TCNT1L = 0;
-//    clkCnt++;
-//    if (clkCnt >= 0xFFF) {
-//        BLANK_OFF;
-//        _delay_us(100);
-//        BLANK_ON;
-//        LED_TOGGLE;
-//    }
-//    if (intrCount >= 2){
-//        intrFlag = true;
-//        intrCount = 0;
-//    //    PORTB ^= _BV(PB1);
-//    }
-//    else{
-//        intrCount = intrCount + 1;
-//    }
-//}
-
 ISR(TIMER1_COMPA_vect) {
+    perFlag = true;
     BLANK_ON;
     BLANK_OFF;
 }
+
