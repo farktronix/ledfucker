@@ -64,20 +64,15 @@ void setupPins (void)
        CTC with Toggle, clk/8
        Triggers GSClk once every 16 clock cycles
     */
-    TCCR0A  = _BV(COM0A0) | _BV(WGM01);//_BV(COM2B1) | _BV(WGM21) | _BV(WGM20);
+    TCCR0A  = _BV(COM0A0) | _BV(WGM01);
     TCCR0B |= _BV(CS01);
     TCNT0   = 0;
     OCR0A   = 1;
-    //TCCR2A  = _BV(COM2B0) | _BV(WGM21);//_BV(COM2B1) | _BV(WGM21) | _BV(WGM20);
-    //TCCR2B |= _BV(CS21);
-    //TCNT2   = 0;
-    //OCR2B   = 1;
-    //TIMSK2 |= _BV(TOIE2); 
 
     /* set  LED */
     DDRC |= _BV(PC5);
     /* Set  GSCLK      VPRG       ????GSClck timer?*/
-    DDRD |= _BV(PD3) | _BV(PD7) | _BV(PD6);// | _BV(PD5);
+    DDRD |= _BV(PD3) | _BV(PD7) | _BV(PD6);
     /* Set  !SS        MOSI       SCK        BLANK      DCPRG */ 
     DDRB |= _BV(PB2) | _BV(PB3) | _BV(PB5) | _BV(PB1) | _BV(PB0); 
     /* Enable SPI, Master, set clock rate fck/4 */ 
@@ -87,6 +82,7 @@ void setupPins (void)
     VPRG_ON;
     BLANK_ON;
 
+    // display a power on blink so we know if the fucker resets itself.
     LED_ON;
     _delay_ms(200);
     int i;
@@ -103,28 +99,28 @@ void setupPins (void)
 #define kNumChannels 16
 #define kBitsPerChannel 12
 // stupid preprocessor tricks
-#define CreateChanArray(name) char name[(kNumChannels * kBitsPerChannel) / 8] = {0}
+#define CreateChanArray(name) uint8_t name[(kNumChannels * kBitsPerChannel) / 8] = {0}
 
 // Brightness is the duty cycle determined by a number between 0 (0%) and 4095 (100%)
-void setBrightnessForChannel (unsigned int brightness, int channel, char *allChans)
+void setBrightnessForChannel (uint8_t brightness, int channel, uint8_t *allChans)
 {
     // We get a 3 nibble value like so:
     // 0xA12
     // nibH: 0xA
     // nibM: 0x1
     // nibL: 0x2
-    char nibH = (brightness >> 8) & 0x0F;
-    char nibM = (brightness & 0xF0) >> 4;
-    char nibL = brightness & 0xF;
+    uint8_t nibH = (brightness >> 8) & 0x0F;
+    uint8_t nibM = ((brightness & 0xF0) >> 4) & 0xF;
+    uint8_t nibL = brightness & 0xF;
 
     int bitnum = channel * kBitsPerChannel;
     int startByte = bitnum / 8;
-    if (bitnum - (startByte * 8) == 0) {
-        allChans[startByte] = (nibH << 4) | nibM;
-        allChans[startByte + 1] = (allChans[startByte + 1] & 0xF) | (nibL << 4);
+    if ((bitnum % 8) == 0) {
+        allChans[startByte] = (nibM << 4) | nibL;
+        allChans[startByte + 1] = (allChans[startByte + 1] & 0xF0) | nibH;
     } else {
-        allChans[startByte] = (allChans[startByte] & 0xF0) | nibH;
-        allChans[startByte + 1] = (nibM << 4) | nibL;
+        allChans[startByte] = (allChans[startByte] & 0xF) | (nibL << 4);
+        allChans[startByte + 1] = (nibH << 4) | nibM;
     }
 }
 
@@ -152,7 +148,6 @@ void writeBrightnessToDriver (char *chans)
         writeSPIByte(chans[ii]);
     }
     SS_ON;
-    _delay_ms(10);
     SS_OFF;
     return;
 }
@@ -167,7 +162,6 @@ void writeDCToDriver (void)
         writeSPIByte(0xFF);
     }
     SS_ON;
-    _delay_ms(10);
     SS_OFF;
     return;
 }
@@ -177,77 +171,32 @@ volatile bool perFlag = false;
 int main(void)
 {
     setupPins();
-    uint8_t up = 0, down = 0xff, count = 0;
+    //uint8_t up = 0, down = 0xff, count = 0;
+    uint8_t count = 0;
+
     CreateChanArray(happyChan);
-    unsigned char brightness = 0x00;
+    uint8_t brightness = 0xfe;
     int direction = -1;
     setBrightnessForAllChannels(brightness, happyChan);
     writeDCToDriver(); 
     writeBrightnessToDriver(happyChan);
-    BLANK_OFF;
-    //PORTC |= _BV(PC5);
-    for ( ; ; ) {
-    // chaser
-//        setBrightnessForAllChannels(0x000, happyChan);
-        //setBrightnessForChannel(0xFFF, brightness, happyChan);
-        //writeSPIByte(0xFF); 
-        //SS_ON;
-        //_delay_ms(10);
-        //SS_OFF;
 
+    BLANK_OFF;
+    for ( ; ; ) {
+        
         if(perFlag == true){
-            // Impulse Blank every 4096 cycles
-            direction = direction;
-            
             // Clear flag 
             perFlag = false;
-            //BLANK_OFF;
-            
-            // Fade and Glow... eventually
-            #ifdef true
-            //setBrightnessForAllChannels(brightness, happyChan);
-            LED_ON;
-            writeSPIByte(0x00); 
-            writeSPIByte(0x00); //-0
-            writeSPIByte(~brightness); //ff    for square green LED 
-            writeSPIByte(0x00); 
-            writeSPIByte(0x00); 
-            writeSPIByte(0x00); 
-            writeSPIByte(0x00); //0f
-            writeSPIByte(0xf0); //f-    for white LED
-            writeSPIByte(0x00); 
-            writeSPIByte(0x00); 
-            writeSPIByte(0x00); 
-            writeSPIByte(0x00); 
-            writeSPIByte(0x00); 
-            writeSPIByte(0x00); 
-            writeSPIByte(0x00); 
-            writeSPIByte(brightness>>4); //-f
-            writeSPIByte(brightness<<4); //f0    for round green LED
-            writeSPIByte(0x00); 
-            writeSPIByte(0x00); //-0
-            writeSPIByte(up); //ff    for yellow LED
-            writeSPIByte(0x00); 
-            writeSPIByte(0x00); 
-            writeSPIByte(0x00); 
-            writeSPIByte(0x00); 
-            SS_ON;
-            SS_OFF;
-            //writeBrightnessToDriver(happyChan);
-            LED_OFF;
+            setBrightnessForAllChannels(brightness, happyChan);
+            writeBrightnessToDriver(happyChan);
+
             count++;
             if(count == 2){
                 count = 0;
                 brightness += direction;
                 if (brightness == 0xFF) direction = -1;
                 else if (brightness == 0x00) direction = 1;
-                up++;
-                down--;
             }
-            #endif
-            
-
-            //LED_TOGGLE;
         }
     }
 
