@@ -166,6 +166,16 @@ void writeDCToDriver (void)
     return;
 }
 
+typedef enum {
+    LEDColorRed = 0,
+    LEDColorGreen,
+    LEDColorBlue
+} LEDColor;
+
+// The leds are in RGB order
+#define setLEDColor(ledNum, color, brightness, allChans) \
+    setBrightnessForChannel((brightness), (((ledNum) * 3) + (color)), (allChans))
+
 volatile bool perFlag = false;
 
 int main(void)
@@ -177,7 +187,7 @@ int main(void)
     CreateChanArray(happyChan);
     uint8_t brightness = 0xfe;
     int direction = -1;
-    setBrightnessForAllChannels(brightness, happyChan);
+    setBrightnessForAllChannels(0xff, happyChan);
     writeDCToDriver(); 
     writeBrightnessToDriver(happyChan);
 
@@ -187,11 +197,15 @@ int main(void)
         if(perFlag == true){
             // Clear flag 
             perFlag = false;
-            setBrightnessForAllChannels(brightness, happyChan);
+//            setBrightnessForAllChannels(brightness, happyChan);
+            setLEDColor(0, LEDColorRed, brightness, happyChan);            
+            setLEDColor(1, LEDColorBlue, brightness, happyChan);            
+//            setLEDColor(0, LEDColorBlue, brightness, happyChan);            
+//            setLEDColor(0, LEDColorGreen, ~brightness, happyChan);            
             writeBrightnessToDriver(happyChan);
 
             count++;
-            if(count == 2){
+            if(count == 20) {
                 count = 0;
                 brightness += direction;
                 if (brightness == 0xFF) direction = -1;
