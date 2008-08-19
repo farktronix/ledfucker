@@ -11,6 +11,7 @@
 #include "LEDDriver.h"
 
 #include "PulseColor.h"
+#include "Chaser.h"
 
 volatile uint8_t intrCount;
 volatile bool intrFlag;
@@ -87,12 +88,13 @@ int main(void)
     writeDCToDriver(); 
     writeBrightnessToDriver(happyChan);
 
-    PulseColorStart(0x00, 0xff, 0xff, 40);
+    //PulseColorStart(0x00, 0xff, 0xff, 40);
+    ChaserStart(0x00, 0x00, 0x00, 255);
 
     BLANK_OFF;
     for ( ; ; ) {
         if (intFired == true) {
-            PulseColorStep();
+            ChaserStep();
             intFired = false;
         }
     }

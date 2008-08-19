@@ -1,6 +1,4 @@
 main.hex
 main.elf
-main.o
-PulseColor.o
-LEDDriver.o
+*.o
 *.swp

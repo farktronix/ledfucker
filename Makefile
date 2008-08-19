@@ -17,7 +17,7 @@
 DEVICE     = atmega168
 CLOCK      = 8000000
 PROGRAMMER = -c stk500v2 -P usb
-OBJECTS    = main.o LEDDriver.o PulseColor.o
+OBJECTS    = main.o LEDDriver.o PulseColor.o Chaser.o
 FUSES      = -U hfuse:w:0xdf:m -U lfuse:w:0x62:m
 # ATMega168 fuse bits:
 # Example for 8 MHz internal oscillator
@@ -91,4 +91,4 @@ disasm:	main.elf
 	avr-objdump -d main.elf
 
 cpp:
-	$(COMPILE) -E main.c LEDDriver.c PulseColor.c
+	$(COMPILE) -E main.c LEDDriver.c PulseColor.c Chaser.c
