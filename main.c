@@ -4,40 +4,16 @@
  * License: If you get the circuit wired up the code is as good as your own
  */
 
-#include <avr/io.h>
 #include <util/delay.h>
 #include <avr/interrupt.h>
 
-#define bool uint8_t
-#define true 1
-#define false 0
+#include "LEDCommon.h"
+#include "LEDDriver.h"
+
+#include "PulseColor.h"
 
 volatile uint8_t intrCount;
 volatile bool intrFlag;
-
-#define LED_ON  (PORTC |= _BV(PC5))
-#define LED_OFF (PORTC &= ~_BV(PC5))
-#define LED_TOGGLE (PORTC ^= _BV(PC5))
-
-#define SS_ON (PORTB |= _BV(PB2))
-#define SS_OFF (PORTB &= ~_BV(PB2))
-#define SS_TOGGLE (PORTB ^= _BV(PB2))
-
-#define BLANK_ON (PORTB |= _BV(PB1))
-#define BLANK_OFF (PORTB &= ~_BV(PB1))
-#define BLANK_TOGGLE (PORTB ^= _BV(PB1))
-
-#define VPRG_ON (PORTD |= _BV(PD7))
-#define VPRG_OFF (PORTD &= ~_BV(PD7))
-#define VPRG_TOGGLE (PORTD ^= _BV(PD7))
-
-#define GSCLOCK_ON (PORTD |= _BV(PD6))
-#define GSCLOCK_OFF (PORTD &= ~_BV(PD6))
-#define GSCLOCK_TOGGLE (PORTD ^= _BV(PD6))
-
-#define DCPRG_ON (PORTB |= _BV(PB0))
-#define DCPRG_OFF (PORTB &= ~_BV(PB0))
-#define DCPRG_TOGGLE (PORTB ^= _BV(PB0))
 
 void setupPins (void)
 {
@@ -96,121 +72,28 @@ void setupPins (void)
     return;    
 }
 
-#define kNumChannels 16
-#define kBitsPerChannel 12
-// stupid preprocessor tricks
-#define CreateChanArray(name) uint8_t name[(kNumChannels * kBitsPerChannel) / 8] = {0}
-
-// Brightness is the duty cycle determined by a number between 0 (0%) and 4095 (100%)
-void setBrightnessForChannel (uint8_t brightness, int channel, uint8_t *allChans)
-{
-    // We get a 3 nibble value like so:
-    // 0xA12
-    // nibH: 0xA
-    // nibM: 0x1
-    // nibL: 0x2
-    uint8_t nibH = (brightness >> 8) & 0x0F;
-    uint8_t nibM = ((brightness & 0xF0) >> 4) & 0xF;
-    uint8_t nibL = brightness & 0xF;
-
-    int bitnum = channel * kBitsPerChannel;
-    int startByte = bitnum / 8;
-    if ((bitnum % 8) == 0) {
-        allChans[startByte] = (nibM << 4) | nibL;
-        allChans[startByte + 1] = (allChans[startByte + 1] & 0xF0) | nibH;
-    } else {
-        allChans[startByte] = (allChans[startByte] & 0xF) | (nibL << 4);
-        allChans[startByte + 1] = (nibH << 4) | nibM;
-    }
-}
-
-void setBrightnessForAllChannels (int bright, char *allChans)
-{
-    int ii;
-    for (ii = 0; ii <= kNumChannels; ii++) {
-        setBrightnessForChannel(bright, ii, allChans);
-    }
-}
-
-void writeSPIByte (unsigned char byte)
-{
-    SPDR = byte;
-    /* Wait for transmission complete */ 
-    while(!(SPSR & _BV(SPIF)));
-}
-
-void writeBrightnessToDriver (char *chans)
-{
-    SS_OFF;
-    VPRG_OFF;
-    int ii;
-    for (ii = (kNumChannels * kBitsPerChannel) / 8; ii >= 0; ii--) {
-        writeSPIByte(chans[ii]);
-    }
-    SS_ON;
-    SS_OFF;
-    return;
-}
-
-void writeDCToDriver (void)
-{
-    int ii;
-    SS_OFF;
-    VPRG_ON;
-    DCPRG_OFF;
-    for (ii = 0; ii < 12; ii++) {
-        writeSPIByte(0xFF);
-    }
-    SS_ON;
-    SS_OFF;
-    return;
-}
-
 typedef enum {
-    LEDColorRed = 0,
-    LEDColorGreen,
-    LEDColorBlue
-} LEDColor;
+    PatternStatePulseColor
+} PatternState;
 
-// The leds are in RGB order
-#define setLEDColor(ledNum, color, brightness, allChans) \
-    setBrightnessForChannel((brightness), (((ledNum) * 3) + (color)), (allChans))
-
-volatile bool perFlag = false;
+static volatile bool intFired = false;
 
 int main(void)
 {
     setupPins();
-    //uint8_t up = 0, down = 0xff, count = 0;
-    uint8_t count = 0;
 
     CreateChanArray(happyChan);
-    uint8_t brightness = 0xfe;
-    int direction = -1;
-    setBrightnessForAllChannels(0xff, happyChan);
+    setBrightnessForAllChannels(0x00, happyChan);
     writeDCToDriver(); 
     writeBrightnessToDriver(happyChan);
 
+    PulseColorStart(0x00, 0xff, 0xff, 40);
+
     BLANK_OFF;
     for ( ; ; ) {
-        
-        if(perFlag == true){
-            // Clear flag 
-            perFlag = false;
-//            setBrightnessForAllChannels(brightness, happyChan);
-            setLEDColor(0, LEDColorRed, brightness, happyChan);            
-            setLEDColor(1, LEDColorBlue, brightness, happyChan);            
-//            setLEDColor(0, LEDColorBlue, brightness, happyChan);            
-//            setLEDColor(0, LEDColorGreen, ~brightness, happyChan);            
-            writeBrightnessToDriver(happyChan);
-
-            count++;
-            if(count == 20) {
-                count = 0;
-                brightness += direction;
-                if (brightness == 0xFF) direction = -1;
-                else if (brightness == 0x00) direction = 1;
-            }
+        if (intFired == true) {
+            PulseColorStep();
+            intFired = false;
         }
     }
 
@@ -218,7 +101,7 @@ int main(void)
 }
 
 ISR(TIMER1_COMPA_vect) {
-    perFlag = true;
+    intFired = true;
     BLANK_ON;
     BLANK_OFF;
 }
