@@ -8,8 +8,8 @@
 
 // Brightness is the duty cycle determined by a number between 0 (0%) and 4095 (100%)
 void setBrightnessForChannel (uint8_t brightness, int channel, uint8_t *allChans);
-void setBrightnessForAllChannels (int bright, char *allChans);
-void writeBrightnessToDriver (char *chans);
+void setBrightnessForAllChannels (int bright, uint8_t *allChans);
+void writeBrightnessToDriver (uint8_t *chans);
 
 // writes all 0xff
 void writeDCToDriver (void);

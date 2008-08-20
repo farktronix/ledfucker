@@ -24,7 +24,7 @@ void setBrightnessForChannel (uint8_t brightness, int channel, uint8_t *allChans
     }
 }
 
-void setBrightnessForAllChannels (int bright, char *allChans)
+void setBrightnessForAllChannels (int bright, uint8_t *allChans)
 {
     int ii;
     for (ii = 0; ii <= kNumChannels; ii++) {
@@ -39,7 +39,7 @@ static void _writeSPIByte (unsigned char byte)
     while(!(SPSR & _BV(SPIF)));
 }
 
-void writeBrightnessToDriver (char *chans)
+void writeBrightnessToDriver (uint8_t *chans)
 {
     SS_OFF;
     VPRG_OFF;
