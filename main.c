@@ -77,6 +77,17 @@ typedef enum {
     PatternStatePulseColor
 } PatternState;
 
+void setConstantColor (uint8_t red, uint8_t green, uint8_t blue, uint8_t *chans)
+{
+    int ii = 0;
+    for (ii = 0; ii < kNumLEDs; ii++) {
+        setLEDColor(ii, LEDColorRed, red, chans);
+        setLEDColor(ii, LEDColorGreen, green, chans);
+        setLEDColor(ii, LEDColorBlue, blue, chans);
+    }
+    writeBrightnessToDriver(chans);
+}
+
 static volatile bool intFired = false;
 
 int main(void)
@@ -88,13 +99,14 @@ int main(void)
     writeDCToDriver(); 
     writeBrightnessToDriver(happyChan);
 
-    //PulseColorStart(0x00, 0xff, 0xff, 40);
-    ChaserStart(0x00, 0x00, 0x00, 255);
+    PulseColorStart(0x76, 0x66, 0x00, 80);
+    //ChaserStart(0x00, 0x00, 0x00, 255);
 
     BLANK_OFF;
     for ( ; ; ) {
         if (intFired == true) {
-            ChaserStep();
+            //ChaserStep();
+            PulseColorStep();
             intFired = false;
         }
     }
