@@ -41,10 +41,18 @@ typedef enum {
     LEDColorBlue
 } LEDColor;
 
+typedef enum {
+    PatternStateTransition,
+    PatternStateTest,
+    PatternStatePulseColor
+} PatternState;
+
 #define kNumLEDs 10
 
 // The leds are in RGB order
 #define setLEDColor(ledNum, color, brightness, allChans) \
     setBrightnessForChannel((brightness), (((ledNum) * 3) + (color)), (allChans))
+#define incrementLEDColor(ledNum, color, amount, allChans) \
+    incrementBrightnessForChannel((amount), (((ledNum) * 3) + (color)), (allChans))
 
 #endif //__LED_COMMON_H

@@ -10,6 +10,7 @@
 #include "LEDCommon.h"
 #include "LEDDriver.h"
 
+#include "TestPattern.h"
 #include "PulseColor.h"
 #include "Chaser.h"
 
@@ -73,41 +74,47 @@ void setupPins (void)
     return;    
 }
 
-typedef enum {
-    PatternStatePulseColor
-} PatternState;
-
-void setConstantColor (uint8_t red, uint8_t green, uint8_t blue, uint8_t *chans)
+static void driverInit (void) 
 {
-    int ii = 0;
-    for (ii = 0; ii < kNumLEDs; ii++) {
-        setLEDColor(ii, LEDColorRed, red, chans);
-        setLEDColor(ii, LEDColorGreen, green, chans);
-        setLEDColor(ii, LEDColorBlue, blue, chans);
-    }
-    writeBrightnessToDriver(chans);
+    CreateChanArray(happyChan);
+    setBrightnessForAllChannels(0x00, happyChan);
+    writeDCToDriver(); 
+    writeBrightnessToDriver(happyChan);
 }
 
 static volatile bool intFired = false;
 
 int main(void)
 {
+    //PatternState curState = PatternStateTest;
+    //PatternState nextState = PatternStateTest;
+    PatternState curState = PatternStateTransition;
+    PatternState nextState = PatternStateTransition;
+
     setupPins();
+    
+    driverInit();
 
-    CreateChanArray(happyChan);
-    setBrightnessForAllChannels(0x00, happyChan);
-    writeDCToDriver(); 
-    writeBrightnessToDriver(happyChan);
-
-    PulseColorStart(0x76, 0x66, 0x00, 80);
-    //ChaserStart(0x00, 0x00, 0x00, 255);
+    TestPatternStart();
 
     BLANK_OFF;
     for ( ; ; ) {
         if (intFired == true) {
-            //ChaserStep();
-            PulseColorStep();
+            switch (curState) {
+                case PatternStateTest:
+                    nextState = TestPatternStep();
+                    break;
+                case PatternStatePulseColor:
+                    nextState = PulseColorStep();
+                    break;
+                case PatternStateTransition:
+                    // TODO: better randomization and setup of the next state
+                    PulseColorStart(0, 0xff, 0xff, 1);
+                    nextState = PatternStatePulseColor;
+                    break;
+            }
             intFired = false;
+            curState = nextState;
         }
     }
 
